@@ -232,12 +232,17 @@ handle_hello_message(RealmName, Details, State) ->
   reply_to_hello(check_authentication(Args),Args,State).
 
 reply_to_hello(anonymous, #{ realm := RealmName }, #state{id=SessionId}=State) ->
+lager:info("reply_to_hello(anonymous ~p", [{RealmName, State}]),
   case erwa_sess_man:connect_to(RealmName) of
     ok ->
       %% SessionData = #{authid => anonymous, role => anonymous, session =>
       %%                 SessionId},
       WelcomeMsg ={welcome,SessionId,#{agent => erwa:get_version(), roles =>
                                        ?ROLES}},
+
+%%      {ok, Challenge, _Timestamp} = wamper_auth:create_wampcra_challenge(<<"static">>, <<"authid_xz">>, <<"user">>, SessionId),
+%%      ChallengeMsg = {challenge, wampcra, Challenge},
+
       {reply,WelcomeMsg,State#state{is_auth=true,
                                     realm_name=RealmName,
                                     client_role=anonymous,
@@ -248,12 +253,35 @@ reply_to_hello(anonymous, #{ realm := RealmName }, #state{id=SessionId}=State) -
       {reply_stop, {abort, #{}, no_such_realm},State}
   end;
 
-reply_to_hello(authenticate,#{details := _Details},State) ->
-  lager:error("authentication not yet implemented~n",[]),
-  %% AuthMethods = maps:get(authmethods, Details, []),
-  %% authenticate(AuthMethods, RealmName, Details, State)
-  erwa_sess_man:unregister_session(),
-  {reply_stop, {abort, #{}, no_such_realm}, State};
+%% TODO: Remove this
+reply_to_hello(authenticate, #{ realm := RealmName }, #state{id=SessionId}=State) ->
+  lager:info("reply_to_hello(authenticate ~p", [{RealmName, State}]),
+  case erwa_sess_man:connect_to(RealmName) of
+    ok ->
+      %% SessionData = #{authid => anonymous, role => anonymous, session =>
+      %%                 SessionId},
+      WelcomeMsg ={welcome,SessionId,#{agent => erwa:get_version(), roles =>
+      ?ROLES}},
+
+%%      {ok, Challenge, _Timestamp} = wamper_auth:create_wampcra_challenge(<<"static">>, <<"authid_xz">>, <<"user">>, SessionId),
+%%      ChallengeMsg = {challenge, wampcra, Challenge},
+
+      {reply,WelcomeMsg,State#state{is_auth=true,
+        realm_name=RealmName,
+        client_role=anonymous,
+        id=SessionId
+      }};
+    {error,_} ->
+      erwa_sess_man:unregister_session(),
+      {reply_stop, {abort, #{}, no_such_realm},State}
+  end;
+
+%%reply_to_hello(authenticate,#{details := _Details},State) ->
+%%  lager:error("authentication not yet implemented~n",[]),
+%%  %% AuthMethods = maps:get(authmethods, Details, []),
+%%  %% authenticate(AuthMethods, RealmName, Details, State)
+%%  erwa_sess_man:unregister_session(),
+%%  {reply_stop, {abort, #{}, no_such_realm}, State};
 
 reply_to_hello(abort,_,State) ->
   erwa_sess_man:unregister_session(),
