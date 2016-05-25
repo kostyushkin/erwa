@@ -80,6 +80,9 @@ init(Args) ->
     {ok,#state{sess_id = SessionId, mapping=Mapping, realm=Realm}}.
 
 
+handle_call(stop,_From,State) ->
+    {stop,stop,ok,State};
+
 handle_call(_Msg,_From,State) ->
     {reply,ignored,State}.
 
@@ -136,7 +139,7 @@ empty_result(_,_,_,_) ->
 
 
 terminate(_Reason, _State) ->
-    ok.
+    ok = erwa_sess_man:unregister_session().
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.

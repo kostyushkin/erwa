@@ -30,7 +30,8 @@
 
 -record(erwa_realm, {
           name = unknown,
-          state = running
+          state = running,
+          calle_pid
          }).
 
 -spec add(Name :: binary() ) -> ok | {error, Reason :: term() }.
@@ -42,7 +43,7 @@ add(Name) ->
                         ok;
                     _ -> 
                         {error, already_exists}
-                end 
+                end
         end,
     {atomic, Res} =  mnesia:transaction(F),
     case Res of
@@ -50,7 +51,10 @@ add(Name) ->
             ok = erwa_broker:init(Name),
             ok = erwa_dealer:init(Name),
             ok = erwa_invocation:init(Name),
-            {ok, _CalleePid} = erwa_callee:start(#{realm=>Name})
+            {ok, CalleePid} = erwa_callee:start(#{realm=>Name}),
+            {atomic, ok} = mnesia:transaction(fun() ->
+              mnesia:write(erwa_realms, #erwa_realm{name=Name, calle_pid = CalleePid}, write)
+            end)
     end,
     Res.
 
@@ -60,8 +64,9 @@ remove(Name) ->
                 case mnesia:read(erwa_realms, Name) of
                     [] ->
                         {error, not_running};
-                    [#erwa_realm{}] ->
+                    [#erwa_realm{calle_pid = CalleePid}] ->
                         ok = mnesia:delete(erwa_realms,Name,write),
+                        ok = erwa_callee:stop(CalleePid),
                         {ok, removed};
                     Other ->
                         {error,Other}
