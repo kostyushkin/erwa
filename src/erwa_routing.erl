@@ -21,7 +21,7 @@
 %%
 
 -module(erwa_routing).
--compile({parse_transform, lager_transform}).
+%-compile({parse_transform, lager_transform}).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -42,7 +42,7 @@
           invocation_id = 1,
           invocations = [],
           calls = [],
-          client_role = anonymous 
+          client_role = anonymous
          }).
 
 
@@ -78,7 +78,7 @@
        ).
 
 
--define(ROLES, #{ 
+-define(ROLES, #{
           broker => ?BROKER_FEATURES,
           dealer => ?DEALER_FEATURES
          }).
@@ -126,7 +126,7 @@ close() ->
 handle_message(_InMsg,#state{id = none}) ->
     erlang:error("session not initialized");
 handle_message(InMsg,State) ->
-  lager:debug("incomming message ~p [~p]~n",[InMsg,State]),
+  %lager:debug("incomming message ~p [~p]~n",[InMsg,State]),
   send_message_or_close_session(hndl_msg(InMsg,State)).
 
 
@@ -137,7 +137,7 @@ handle_message(InMsg,State) ->
   {send_stop, Message:: term(), #state{} }.
 
 handle_info(Info,State) ->
-  lager:debug("incomming info ~p [~p]~n",[Info,State]),
+  %lager:debug("incomming info ~p [~p]~n",[Info,State]),
   send_message_or_close_session(hndl_info(Info,State)).
 
 
@@ -219,7 +219,7 @@ hndl_info({error,call,CallRequestId,Details,ErrorUri,Arguments,ArgumentsKw},Stat
 hndl_info({event,SubscriptionId,PublicationId,Details,Arguments,ArgumentsKw}, State) ->
   handle_event_info(SubscriptionId,PublicationId,Details,Arguments,ArgumentsKw,State);
 hndl_info(routing_closing,State) ->
-  handle_routing_closing_info(State); 
+  handle_routing_closing_info(State);
 hndl_info(shutdown,State) ->
   handle_shutdown_info(State);
 hndl_info(Info, State) ->
@@ -232,7 +232,7 @@ handle_hello_message(RealmName, Details, State) ->
   reply_to_hello(check_authentication(Args),Args,State).
 
 reply_to_hello(anonymous, #{ realm := RealmName }, #state{id=SessionId}=State) ->
-lager:info("reply_to_hello(anonymous ~p", [{RealmName, State}]),
+%lager:info("reply_to_hello(anonymous ~p", [{RealmName, State}]),
   case erwa_sess_man:connect_to(RealmName) of
     ok ->
       %% SessionData = #{authid => anonymous, role => anonymous, session =>
@@ -247,7 +247,7 @@ lager:info("reply_to_hello(anonymous ~p", [{RealmName, State}]),
                                     realm_name=RealmName,
                                     client_role=anonymous,
                                     id=SessionId
-                                   }}; 
+                                   }};
     {error,_} ->
       erwa_sess_man:unregister_session(),
       {reply_stop, {abort, #{}, no_such_realm},State}
@@ -255,7 +255,7 @@ lager:info("reply_to_hello(anonymous ~p", [{RealmName, State}]),
 
 %% TODO: Remove this
 reply_to_hello(authenticate, #{ realm := RealmName }, #state{id=SessionId}=State) ->
-  lager:info("reply_to_hello(authenticate ~p", [{RealmName, State}]),
+  %lager:info("reply_to_hello(authenticate ~p", [{RealmName, State}]),
   case erwa_sess_man:connect_to(RealmName) of
     ok ->
       %% SessionData = #{authid => anonymous, role => anonymous, session =>
@@ -277,7 +277,7 @@ reply_to_hello(authenticate, #{ realm := RealmName }, #state{id=SessionId}=State
   end;
 
 %%reply_to_hello(authenticate,#{details := _Details},State) ->
-%%  lager:error("authentication not yet implemented~n",[]),
+%%  %lager:error("authentication not yet implemented~n",[]),
 %%  %% AuthMethods = maps:get(authmethods, Details, []),
 %%  %% authenticate(AuthMethods, RealmName, Details, State)
 %%  erwa_sess_man:unregister_session(),
@@ -292,14 +292,14 @@ gather_hello_args(Details, RealmName) ->
   AuthId = maps:get(authid, Details, anonymous),
   #{auth_id => AuthId, realm => RealmName, details => Details}.
 
-check_authentication(#{realm := RealmName} = Args) -> 
+check_authentication(#{realm := RealmName} = Args) ->
   get_authentication_mechanism(Args, erwa_user_db:allow_anonymous(RealmName, tcp)).
 
-get_authentication_mechanism(#{auth_id := anonymous}, true) -> 
+get_authentication_mechanism(#{auth_id := anonymous}, true) ->
   anonymous;
-get_authentication_mechanism(#{auth_id := anonymous}, _) -> 
+get_authentication_mechanism(#{auth_id := anonymous}, _) ->
   abort;
-get_authentication_mechanism(_, _) -> 
+get_authentication_mechanism(_, _) ->
   authenticate.
 
 
@@ -320,20 +320,20 @@ handle_authenticate_message(_Signature,_Extra,State) ->
 
 %% authenticate([], _RealmName, _Details, State) ->
 %%   {reply_stop, {abort, #{}, no_such_realm}, State};
-%% authenticate([wampcra|_], RealmName, Details,State) -> 
+%% authenticate([wampcra|_], RealmName, Details,State) ->
 %%   AuthId = maps:get(authid, Details, anonymous),
 %%   ClientRoles = maps:get(roles, Details, []),
-%%   case erwa_user_db:can_join(AuthId, RealmName, tcp ) of 
-%%     {true, Role} -> 
+%%   case erwa_user_db:can_join(AuthId, RealmName, tcp ) of
+%%     {true, Role} ->
 %%       case erwa_sess_man:register_session(RealmName) of
 %%         {ok,SessionId} ->
 %%           % a user that needs to authenticate
-%%           % need to create a a challenge  
+%%           % need to create a a challenge
 %%           SessionData = #{authid => AuthId, role => Role, session =>
 %%                           SessionId},
 %%           {_Result, ChallengeData} = erwa_user_db:wampcra_challenge(SessionData),
 %%           ChallengeMsg = {challenge, wampcra, ChallengeData},
-%%           %% WillPass = case Result of 
+%%           %% WillPass = case Result of
 %%           %%              ok -> true;
 %%           %%              _ -> false
 %%           %%            end,
@@ -459,7 +459,7 @@ handle_goodbye_message(_Details,_Reason,#state{goodbye_sent=GBSent}=State) ->
 
 %%%%%%%%%%% unkonwn messages %%%%%%%%%%%%%%%%%%
 handle_unknown_message(Msg,State) ->
-  lager:warning("unknown message ~p~n",[Msg]),
+  %lager:warning("unknown message ~p~n",[Msg]),
   {stop, State }.
 
 
@@ -491,7 +491,7 @@ handle_result_info(CallRequestId,Details,Arguments,ArgumentsKw,#state{calls=Call
 
 %%%%%%%%%%%% error call info %%%%%%%%%%%%%%%%%
 handle_error_call_info(error,call,CallRequestId,Details,ErrorUri,Arguments,ArgumentsKw,#state{calls=Calls}=State) ->
-  Msg = {error, call, CallRequestId,Details,ErrorUri,Arguments,ArgumentsKw}, 
+  Msg = {error, call, CallRequestId,Details,ErrorUri,Arguments,ArgumentsKw},
   {send,Msg,State#state{calls=lists:keydelete(CallRequestId,1,Calls)}}.
 
 
@@ -519,7 +519,7 @@ handle_shutdown_info(State) ->
 
 %%%%%%%%%%%% unknown info %%%%%%%%%%%%%%%%
 handle_unknown_info(Info, State) ->
-  lager:warning("unknown info ~p~n",[Info]),
+  %lager:warning("unknown info ~p~n",[Info]),
   {ok,State}.
 
 
