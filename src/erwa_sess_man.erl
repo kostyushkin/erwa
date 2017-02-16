@@ -68,7 +68,7 @@
 
 
 -spec create_table() -> ok.
-create_table() -> 
+create_table() ->
     case lists:member(erwa_session_record, mnesia:system_info(local_tables)) of
         true ->
             mnesia:delete_table(erwa_session_record);
@@ -102,7 +102,7 @@ send_message_to(Msg,SessionId) ->
 -spec create_session() -> {ok,non_neg_integer()}.
 create_session() ->
     Pid = self(),
-    AddSession = fun() -> 
+    AddSession = fun() ->
                          ID = ensure_unique_id(),
                          Data = #erwa_session_record{id=ID, pid=Pid},
                          ok = mnesia:write(Data),
@@ -153,7 +153,7 @@ update_session_records(Sess, [{authmethod, Method} | Rest]) ->
 update_session_records(Sess, [{authprovider, Provider} | Rest ]) ->
     update_session_records(Sess#erwa_session_record{authprovider = Provider}, Rest);
 update_session_records(Sess, [_|Rest]) ->
-    update_session_records(Sess, Rest). 
+    update_session_records(Sess, Rest).
 
 
 
@@ -189,22 +189,22 @@ add_subscription(SubscriptionId, SessionId) ->
 rem_subscription(SubscriptionId, SessionId) ->
 	{atomic, Res} =
 	mnesia:transaction(mnes_addRemSub(SubscriptionId,SessionId,del)),
-	Res.	
+	Res.
 
 mnes_addRemSub(SubscriptionId,SessionId,Add) ->
-	F = fun () -> 
+	F = fun () ->
 			case mnesia:read(erwa_session_record, SessionId) of
 				[] -> {error, not_found};
 				[#erwa_session_record{subscriptions=Subs}=Sess] ->
 					Subs2 = lists:delete(SubscriptionId, Subs),
-					NewSubs = case Add of 
+					NewSubs = case Add of
 								  add -> [SubscriptionId | Subs2];
 								  _ -> Subs2
 							  end,
 					ok =
 					mnesia:write(Sess#erwa_session_record{subscriptions=NewSubs}),
 					ok
-			end 
+			end
 		end,
 	F.
 
@@ -212,26 +212,26 @@ mnes_addRemSub(SubscriptionId,SessionId,Add) ->
 
 -spec get_subscriptions(SessionId::non_neg_integer()) -> [non_neg_integer()] .
 get_subscriptions(SessionId) ->
-    case get_record_for_id(SessionId) of 
+    case get_record_for_id(SessionId) of
         not_found -> [];
         {ok, Sess} -> Sess#erwa_session_record.subscriptions
     end.
 
 -spec clear_subscriptions(SessionId::non_neg_integer()) -> ok .
 clear_subscriptions(SessionId) ->
-    ClearSubs = fun() -> 
+    ClearSubs = fun() ->
                         case mnesia:read(erwa_session_record, SessionId) of
                             [] -> ok;
                             [#erwa_session_record{}=Sess] ->
                                 ok = mnesia:write(Sess#erwa_session_record{subscriptions=[]}),
                                 ok
-                        end 
+                        end
                 end,
     {atomic, Res} = mnesia:transaction(ClearSubs) ,
     Res.
 
 -spec add_registration(RegistrationId::non_neg_integer(), SessionId::non_neg_integer()) -> ok | {error, atom()}.
-add_registration(RegistrationId, SessionId) -> 
+add_registration(RegistrationId, SessionId) ->
     {atomic, Res} =
 	mnesia:transaction(mnes_addRemReg(RegistrationId,SessionId,add)),
     Res.
@@ -242,7 +242,7 @@ add_registration(RegistrationId, SessionId) ->
 rem_registration(RegistrationId, SessionId) ->
 	{atomic, Res} =
 	mnesia:transaction(mnes_addRemReg(RegistrationId,SessionId,del)),
-	Res.	
+	Res.
 
 -spec clear_registrations(SessionId::non_neg_integer()) -> ok.
 clear_registrations(SessionId) ->
@@ -252,32 +252,32 @@ clear_registrations(SessionId) ->
                             [#erwa_session_record{} = Sess] ->
                                 ok = mnesia:write(Sess#erwa_session_record{registrations=[]}),
                                 ok
-                        end 
+                        end
                 end,
     {atomic, Res} = mnesia:transaction(ClearRegs),
     Res.
 
 -spec get_registrations(SessionId::non_neg_integer()) -> [non_neg_integer()] .
 get_registrations(SessionId) ->
-    case get_record_for_id(SessionId) of 
+    case get_record_for_id(SessionId) of
         not_found -> [];
         {ok, Sess} -> Sess#erwa_session_record.registrations
     end.
 
 mnes_addRemReg(RegistrationId,SessionId,Add) ->
-	F = fun () -> 
+	F = fun () ->
 			case mnesia:read(erwa_session_record, SessionId) of
 				[] -> {error, not_found};
 				[#erwa_session_record{registrations=Regs}=Sess] ->
 					Regs2 = lists:delete(RegistrationId, Regs),
-					NewRegs = case Add of 
+					NewRegs = case Add of
 								  add -> [RegistrationId | Regs2];
 								  _ -> Regs2
 							  end,
 					ok =
 					mnesia:write(Sess#erwa_session_record{registrations=NewRegs}),
 					ok
-			end 
+			end
 		end,
 	F.
 
@@ -287,7 +287,8 @@ mnes_addRemReg(RegistrationId,SessionId,Add) ->
 get_session_count(Realm) ->
     F = fun() ->
                 Records =  mnesia:index_read(erwa_session_record, Realm, realm),
-                length(Records)
+                Records2 = [Record || Record <- Records, is_process_alive(Record#erwa_session_record.pid)],
+                length(Records2)
         end,
     {atomic, Result} = mnesia:transaction(F),
     {ok, Result}.
@@ -311,15 +312,15 @@ session_to_realm(Pid, Realm) ->
                               ok = mnesia:write(Session#erwa_session_record{realm=Realm}),
                               {ok, Session};
                           _ ->  {error, not_found}
-                      end 
-              end,  
+                      end
+              end,
     {atomic, Res} = mnesia:transaction(Connect),
-    case Res of 
+    case Res of
         {ok,Session} ->
             Info = session_to_dict(Session),
             publish_metaevent(on_join,maps:with([id,authid,role,authmethod,authprovider,transport],Info), Realm),
             ok;
-        Res -> Res 
+        Res -> Res
     end.
 
 session_to_dict(Session) ->
@@ -333,7 +334,7 @@ session_to_dict(Session) ->
        authprovider = AuthProvider,
        transport = Transport,
        subscriptions = Subs,
-       registrations = Regs 
+       registrations = Regs
       } = Session,
     #{ id => Id,
        authid => AuthId,
@@ -350,15 +351,15 @@ session_to_dict(Session) ->
 
 delete_session(Pid) when is_pid(Pid) ->
     RemoveSession = fun() ->
-                            case mnesia:index_read(erwa_session_record, Pid, pid)	of 
+                            case mnesia:index_read(erwa_session_record, Pid, pid)	of
                                 [] -> {atomic, not_found};
                                 [#erwa_session_record{id=SessionId,realm=Realm}] -> mnesia:delete({erwa_session_record,
                                                             SessionId}),
                                              {ok,SessionId,Realm}
-                            end 
+                            end
                     end,
     case mnesia:transaction(RemoveSession) of
-        {atomic, {ok, SessionId,Realm}} -> 
+        {atomic, {ok, SessionId,Realm}} ->
             publish_metaevent(on_leave,SessionId,Realm),
             ok;
         _ -> not_found
@@ -366,7 +367,7 @@ delete_session(Pid) when is_pid(Pid) ->
 delete_session(ID) ->
     RemoveSession = fun() -> mnesia:delete({erwa_session_record, ID}) end,
     case mnesia:transaction(RemoveSession) of
-        {atomic, ok} -> 
+        {atomic, ok} ->
             ok;
         _ ->
             not_found
@@ -380,10 +381,10 @@ get_record_for_id(SessionId) ->
     end.
 
 publish_metaevent(Event,Arg,Realm) ->
-    MetaTopic = case Event of 
+    MetaTopic = case Event of
                     on_join -> <<"wamp.session.on_join">>;
                     on_leave -> <<"wamp.session.on_leave">>
-                end, 
+                end,
     erwa_broker:publish(MetaTopic,#{},[Arg],undefined,no_session,Realm).
 
 %% -ifdef(TEST).
@@ -395,7 +396,7 @@ publish_metaevent(Event,Arg,Realm) ->
 %%     erwa_realms:init(),
 %%     erwa_realms:add(<<"test_realm">>),
 %% 	ok = create_table(),
-%% 	not_found = u_nregister_session(), 
+%% 	not_found = u_nregister_session(),
 %%     {ok,_} = create_session(),
 %%   ok = unregister_session(),
 %% 	ok = drop_table().
